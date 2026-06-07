@@ -1,0 +1,3 @@
+D:/cursach/Snake/build/vs2026-x64/CMakeFiles/Snake.dir
+D:/cursach/Snake/build/vs2026-x64/CMakeFiles/ALL_BUILD.dir
+D:/cursach/Snake/build/vs2026-x64/CMakeFiles/ZERO_CHECK.dir

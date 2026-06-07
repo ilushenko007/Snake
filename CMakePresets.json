@@ -1,0 +1,56 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 25,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "vs2026-x64",
+            "displayName": "Visual Studio 2026 (x64) + встроенный vcpkg",
+            "description": "Использует встроенный в Visual Studio 2026 vcpkg по фиксированному пути.",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/vs2026-x64",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                },
+                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "VCPKG_MANIFEST_MODE": "ON"
+            }
+        },
+        {
+            "name": "vs2026-x64-manual-vcpkg",
+            "displayName": "Visual Studio 2026 (x64) + ручной vcpkg через VCPKG_ROOT",
+            "description": "Использует ручной vcpkg из переменной окружения VCPKG_ROOT (например, C:\\dev\\vcpkg).",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/vs2026-x64-manual",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+                },
+                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "VCPKG_MANIFEST_MODE": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "vs2026-x64-debug",
+            "displayName": "Debug (x64)",
+            "configurePreset": "vs2026-x64",
+            "configuration": "Debug"
+        },
+        {
+            "name": "vs2026-x64-release",
+            "displayName": "Release (x64)",
+            "configurePreset": "vs2026-x64",
+            "configuration": "Release"
+        }
+    ]
+}

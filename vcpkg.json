@@ -1,0 +1,13 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "snake",
+    "version-string": "1.0.0",
+    "description": "Курсовой проект «Змейка» (C++17 / SFML 3.1)",
+    "dependencies": [
+        {
+            "name": "sfml",
+            "version>=": "3.0.0"
+        }
+    ],
+    "builtin-baseline": "aa40adda5352e87655b8583cfb2451d5e9e276fd"
+}
