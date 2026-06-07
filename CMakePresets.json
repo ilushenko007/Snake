@@ -37,6 +37,38 @@
                 "VCPKG_TARGET_TRIPLET": "x64-windows",
                 "VCPKG_MANIFEST_MODE": "ON"
             }
+        },
+        {
+            "name": "vs2026-x64-static",
+            "displayName": "Visual Studio 2026 (x64) Static — один EXE без DLL",
+            "description": "Собирает SFML и CRT статически (x64-windows-static). Результат — один Snake.exe без каких-либо DLL.",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/vs2026-x64-static",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                },
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+                "VCPKG_MANIFEST_MODE": "ON"
+            }
+        },
+        {
+            "name": "vs2026-x64-static-manual-vcpkg",
+            "displayName": "Visual Studio 2026 (x64) Static + ручной vcpkg — один EXE без DLL",
+            "description": "Статическая сборка через ручной vcpkg из VCPKG_ROOT.",
+            "generator": "Visual Studio 18 2026",
+            "architecture": "x64",
+            "binaryDir": "${sourceDir}/build/vs2026-x64-static-manual",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+                },
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+                "VCPKG_MANIFEST_MODE": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -50,6 +82,12 @@
             "name": "vs2026-x64-release",
             "displayName": "Release (x64)",
             "configurePreset": "vs2026-x64",
+            "configuration": "Release"
+        },
+        {
+            "name": "vs2026-x64-static-release",
+            "displayName": "Release Static (x64) — один EXE без DLL",
+            "configurePreset": "vs2026-x64-static",
             "configuration": "Release"
         }
     ]
