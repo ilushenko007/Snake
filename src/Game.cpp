@@ -30,20 +30,13 @@ Game::Game()
     , m_menu(m_font)
     , m_stepsPerSecond(cfg::INITIAL_STEPS_PER_SECOND)
 {
-    // FPS зафиксируем на 60 - больше для змейки не нужно.
     m_window.setFramerateLimit(60);
 
-    // Грузим шрифт. В SFML 3 это конструктор или openFromFile (а не
-    // loadFromFile, как было в SFML 2).
-    m_fontLoaded = m_font.openFromFile(cfg::FONT_PATH);
-    if (!m_fontLoaded) {
-        // Бросаем исключение - его поймает main() и выведет сообщение.
-        throw std::runtime_error(
-            "Не удалось загрузить шрифт: " + cfg::FONT_PATH +
-            ". Убедитесь, что папка assets/ лежит рядом с Snake.exe.");
-    }
+    // Загружаем шрифт из встроенных ресурсов (cmrc).
+    // Шрифт вшит в EXE при компиляции — файл assets/ на диске не нужен.
+    cfg::loadFontFromResources(m_font);
+    m_fontLoaded = true;
 
-    // Грузим таблицу рекордов (если файла нет - просто пустая).
     m_scores.load();
 }
 
@@ -52,21 +45,12 @@ Game::Game()
 // ---------------------------------------------------------------------
 int Game::run() {
     while (m_window.isOpen()) {
-        // 1) События ввода.
         handleEvents();
-
-        // 2) Прошедшее время с прошлого кадра (в секундах).
         const float dt = m_frameClock.restart().asSeconds();
-
-        // 3) Логика - только в состоянии Playing.
         if (m_state == GameState::Playing) {
             updateGame(dt);
         }
-
-        // 4) Отрисовка.
         render();
-
-        // 5) Обновим заголовок окна (счёт, состояние и пр.).
         updateWindowTitle();
     }
     return 0;
@@ -74,9 +58,6 @@ int Game::run() {
 
 // ---------------------------------------------------------------------
 // Обработка всех событий за кадр.
-// В SFML 3 pollEvent() возвращает std::optional<sf::Event>, а внутри
-// событие - это std::variant. Для проверки типа используем .is<T>(),
-// для доступа к данным конкретного типа - .getIf<T>().
 // ---------------------------------------------------------------------
 void Game::handleEvents() {
     while (const std::optional event = m_window.pollEvent()) {
@@ -85,7 +66,6 @@ void Game::handleEvents() {
             continue;
         }
 
-        // Ввод текста (для экрана EnterName).
         if (const auto* te = event->getIf<sf::Event::TextEntered>()) {
             if (m_state == GameState::EnterName) {
                 onTextEnteredEnterName(*te);
@@ -93,17 +73,13 @@ void Game::handleEvents() {
             continue;
         }
 
-        // Нажатие клавиши.
         if (const auto* kp = event->getIf<sf::Event::KeyPressed>()) {
             const sf::Keyboard::Key key = kp->code;
 
-            // Esc в любом игровом состоянии (кроме ввода имени) - в меню или выход.
-            // В меню Esc - выход из приложения.
             if (key == sf::Keyboard::Key::Escape && m_state != GameState::EnterName) {
                 if (m_state == GameState::Menu) {
                     m_window.close();
                 } else if (m_state == GameState::TitleScreen) {
-                    // На заставке Esc просто пропускает её и ведёт в меню.
                     m_state = GameState::Menu;
                 } else {
                     m_state = GameState::Menu;
@@ -124,11 +100,7 @@ void Game::handleEvents() {
     }
 }
 
-// ---------------------------------------------------------------------
-// Обработчики ввода для разных состояний.
-// ---------------------------------------------------------------------
 void Game::onKeyPressedTitleScreen(sf::Keyboard::Key /*key*/) {
-    // Любая клавиша - переход в главное меню.
     m_state = GameState::Menu;
 }
 
@@ -176,8 +148,6 @@ void Game::onKeyPressedPlaying(sf::Keyboard::Key key) {
 void Game::onKeyPressedPaused(sf::Keyboard::Key key) {
     if (key == sf::Keyboard::Key::Space) {
         m_state = GameState::Playing;
-        // Сбрасываем таймер, чтобы пауза не приводила к "телепортации"
-        // змейки на накопленные шаги.
         m_accumulator = 0.0f;
         m_frameClock.restart();
     }
@@ -197,11 +167,6 @@ void Game::onKeyPressedScores(sf::Keyboard::Key key) {
     }
 }
 
-// ---------------------------------------------------------------------
-// Ввод имени в таблицу рекордов.
-// Здесь мы обрабатываем спец. клавиши (Backspace, Enter),
-// а сами символы - в onTextEnteredEnterName.
-// ---------------------------------------------------------------------
 void Game::onKeyPressedEnterName(const sf::Event::KeyPressed& kp) {
     if (kp.code == sf::Keyboard::Key::Enter) {
         if (m_playerName.empty()) {
@@ -211,46 +176,25 @@ void Game::onKeyPressedEnterName(const sf::Event::KeyPressed& kp) {
         m_scores.save();
         m_state = GameState::GameOver;
     } else if (kp.code == sf::Keyboard::Key::Escape) {
-        // Передумали вводить имя - просто на экран Game Over.
         m_state = GameState::GameOver;
     }
 }
 
 void Game::onTextEnteredEnterName(const sf::Event::TextEntered& te) {
-    // te.unicode - это код символа Unicode (тип char32_t).
     const char32_t ch = te.unicode;
-
-    // Backspace - удалить последний байт. Простая, но "ASCII-friendly"
-    // реализация: для упрощения работаем только с ASCII-именами.
-    if (ch == 8 /* '\b' */) {
+    if (ch == 8) {
         if (!m_playerName.empty()) {
             m_playerName.pop_back();
         }
         return;
     }
-
-    // Enter и прочие управляющие символы игнорируем тут (Enter
-    // обрабатывается в onKeyPressedEnterName).
     if (ch < 32 || ch == 127) return;
-
-    // Ограничим длину имени, чтобы не выходило за экран.
     if (m_playerName.size() >= 14) return;
-
-    // Записываем только печатные ASCII-символы.
     if (ch < 128) {
         m_playerName.push_back(static_cast<char>(ch));
     }
 }
 
-// ---------------------------------------------------------------------
-// Игровая логика - продвижение змейки по таймеру.
-// Используем технику "fixed timestep": накапливаем dt в m_accumulator,
-// и пока в нём набралось больше одного "шага", делаем шаги змейкой.
-// На каждом шаге:
-//   1) смотрим, куда попадёт голова;
-//   2) если там фрукт - шагаем с ростом, иначе - без роста;
-//   3) проверяем столкновения.
-// ---------------------------------------------------------------------
 void Game::updateGame(float dt) {
     m_accumulator += dt;
     const float stepDuration = 1.0f / m_stepsPerSecond;
@@ -258,30 +202,22 @@ void Game::updateGame(float dt) {
     while (m_accumulator >= stepDuration) {
         m_accumulator -= stepDuration;
 
-        // 1) Заранее понять, съест ли змейка фрукт на этом шаге.
-        //    Для этого спрашиваем у змейки, куда переедет голова,
-        //    и сравниваем с позицией фрукта.
         const Cell nextHead = m_snake.peekNextHead();
         const bool willEat = (m_fruit && nextHead == m_fruit->position());
 
-        // 2) Делаем шаг. Если съели фрукт - змейка вырастет на 1.
         m_snake.step(/*grow=*/willEat);
 
-        // 3) Столкновение с границей поля.
         const Cell h = m_snake.head();
         if (h.x < 0 || h.x >= cfg::COLS || h.y < 0 || h.y >= cfg::ROWS) {
             onSnakeDied();
             return;
         }
 
-        // 4) Столкновение с собственным телом.
         if (m_snake.collidesWithSelf()) {
             onSnakeDied();
             return;
         }
 
-        // 5) Если фрукт съеден - обновляем счёт, ускоряемся
-        //    и генерируем новый фрукт.
         if (willEat) {
             m_score += cfg::FRUIT_SCORE;
             m_stepsPerSecond = std::min(
@@ -293,9 +229,6 @@ void Game::updateGame(float dt) {
     }
 }
 
-// ---------------------------------------------------------------------
-// Сброс игры в начальное состояние и старт.
-// ---------------------------------------------------------------------
 void Game::startNewGame() {
     m_snake.reset();
     m_fruit.emplace(m_snake);
@@ -307,11 +240,7 @@ void Game::startNewGame() {
     m_frameClock.restart();
 }
 
-// ---------------------------------------------------------------------
-// Гибель змейки.
-// ---------------------------------------------------------------------
 void Game::onSnakeDied() {
-    // Проверим, бьёт ли результат рекорд (попадает ли в топ-N).
     bool madeTop = false;
     const auto& entries = m_scores.entries();
     if (entries.size() < static_cast<std::size_t>(cfg::MAX_SCORES)) {
@@ -320,8 +249,6 @@ void Game::onSnakeDied() {
         madeTop = (m_score > entries.back().score);
     }
 
-    // Имя игрока больше не запрашиваем и не показываем.
-    // Если результат попал в топ — сразу сохраняем его с пустым именем.
     if (madeTop) {
         m_scores.tryAdd("", m_score);
         m_scores.save();
@@ -329,9 +256,6 @@ void Game::onSnakeDied() {
     m_state = GameState::GameOver;
 }
 
-// ---------------------------------------------------------------------
-// Отрисовка кадра.
-// ---------------------------------------------------------------------
 void Game::render() {
     m_window.clear(cfg::COLOR_BACKGROUND);
 
@@ -339,15 +263,12 @@ void Game::render() {
         case GameState::TitleScreen:
             m_menu.drawTitleScreen(m_window);
             break;
-
         case GameState::Menu:
             m_menu.drawMain(m_window);
             break;
-
         case GameState::Scores:
             m_menu.drawScores(m_window, m_scores);
             break;
-
         case GameState::Playing:
         case GameState::Paused:
             drawHud();
@@ -358,7 +279,6 @@ void Game::render() {
                 drawCenteredMessage("ПАУЗА", "Пробел - продолжить, Esc - в меню");
             }
             break;
-
         case GameState::GameOver:
             drawHud();
             m_field.draw(m_window);
@@ -370,7 +290,6 @@ void Game::render() {
                 "   |   Пробел - заново, Enter - в меню"
             );
             break;
-
         case GameState::EnterName:
             drawHud();
             m_field.draw(m_window);
@@ -383,13 +302,10 @@ void Game::render() {
     m_window.display();
 }
 
-// ---------------------------------------------------------------------
-// Верхняя полоса со счётом, длиной и скоростью.
-// ---------------------------------------------------------------------
 void Game::drawHud() {
     sf::RectangleShape hud({
         static_cast<float>(cfg::WINDOW_WIDTH),
-        static_cast<float>(cfg::HUD_HEIGHT)
+        static_cast<float>(cfg::WINDOW_HEIGHT)
     });
     hud.setPosition({ 0.0f, 0.0f });
     hud.setFillColor(cfg::COLOR_HUD);
@@ -405,7 +321,6 @@ void Game::drawHud() {
     text.setPosition({ 12.0f, 9.0f });
     m_window.draw(text);
 
-    // Подсказка справа: лучший результат.
     if (m_scores.bestScore() > 0) {
         std::string best = "Рекорд: " + std::to_string(m_scores.bestScore());
         sf::Text bestText(m_font, cfg::toSfString(best), 18);
@@ -419,11 +334,7 @@ void Game::drawHud() {
     }
 }
 
-// ---------------------------------------------------------------------
-// Полупрозрачное затемнение + крупная надпись по центру.
-// ---------------------------------------------------------------------
 void Game::drawCenteredMessage(const std::string& title, const std::string& subtitle) {
-    // Затемнение всего поля.
     sf::RectangleShape veil({
         static_cast<float>(cfg::WINDOW_WIDTH),
         static_cast<float>(cfg::WINDOW_HEIGHT)
@@ -453,9 +364,6 @@ void Game::drawCenteredMessage(const std::string& title, const std::string& subt
     }
 }
 
-// ---------------------------------------------------------------------
-// Ввод имени для попавшего в топ результата.
-// ---------------------------------------------------------------------
 void Game::drawEnterName() {
     sf::RectangleShape veil({
         static_cast<float>(cfg::WINDOW_WIDTH),
@@ -492,7 +400,6 @@ void Game::drawEnterName() {
     });
     m_window.draw(prompt);
 
-    // Сама строка имени с мигающим курсором.
     const bool cursorVisible = (static_cast<int>(m_frameClock.getElapsedTime().asMilliseconds() / 500) % 2) == 0;
     std::string shown = m_playerName + (cursorVisible ? "_" : " ");
     sf::Text nameText(m_font, cfg::toSfString(shown), 28);
@@ -514,19 +421,16 @@ void Game::drawEnterName() {
     m_window.draw(hint);
 }
 
-// ---------------------------------------------------------------------
-// Динамическое обновление заголовка окна.
-// ---------------------------------------------------------------------
 void Game::updateWindowTitle() {
     std::string state;
     switch (m_state) {
-        case GameState::TitleScreen: state = "Заставка";  break;
-        case GameState::Menu:      state = "Меню";      break;
-        case GameState::Scores:    state = "Рекорды";   break;
-        case GameState::Playing:   state = "Игра";      break;
-        case GameState::Paused:    state = "Пауза";     break;
-        case GameState::GameOver:  state = "Конец";     break;
-        case GameState::EnterName: state = "Новый рекорд"; break;
+        case GameState::TitleScreen: state = "Заставка";      break;
+        case GameState::Menu:        state = "Меню";          break;
+        case GameState::Scores:      state = "Рекорды";       break;
+        case GameState::Playing:     state = "Игра";          break;
+        case GameState::Paused:      state = "Пауза";         break;
+        case GameState::GameOver:    state = "Конец";         break;
+        case GameState::EnterName:   state = "Новый рекорд"; break;
     }
 
     std::string title = cfg::WINDOW_TITLE + "   |   " + state;
